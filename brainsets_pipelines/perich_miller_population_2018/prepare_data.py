@@ -137,114 +137,127 @@ def detect_outliers(cursor):
 
 
 def main():
-    # use argparse to get arguments from the command line
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_file", type=str)
-    parser.add_argument("--output_dir", type=str, default="./processed")
+    #open raw data file manifest
+    # Z:\Student Folders\Omer_Benharush\Poyo\brainsets\brainsets_pipelines\perich_miller_population_2018\data\raw\perich_miller_population_2018\manifest.txt
+    dir = "./data/raw/perich_miller_population_2018"
+    with open(os.path.join(dir, 'manifest.txt'), 'r') as file:
+    # with open(dir, 'r') as file:
+    # Iterate over each line in the file
+        for line in file:
+            # Strip any trailing whitespace (e.g., newline characters)
+            processed_line = line.strip()
+            
+            # Perform actions with the processed line
+            input_file = os.path.join(dir, processed_line)
+    
+            # use argparse to get arguments from the command line
+            parser = argparse.ArgumentParser()
+            # parser.add_argument("--input_file", type=str)
+            parser.add_argument("--output_dir", type=str, default="./processed")
 
-    args = parser.parse_args()
+            args = parser.parse_args()
 
-    # intiantiate a DatasetBuilder which provides utilities for processing data
-    brainset_description = BrainsetDescription(
-        id="perich_miller_population_2018",
-        origin_version="dandi/000688/draft",
-        derived_version="1.0.0",
-        source="https://dandiarchive.org/dandiset/000688",
-        description="This dataset contains electrophysiology and behavioral data from "
-        "three macaques performing either a center-out task or a continuous random "
-        "target acquisition task. Neural activity was recorded from "
-        "chronically-implanted electrode arrays in the primary motor cortex (M1) or "
-        "dorsal premotor cortex (PMd) of four rhesus macaque monkeys. A subset of "
-        "sessions includes recordings from both regions simultaneously. The data "
-        "contains spiking activity—manually spike sorted in three subjects, and "
-        "threshold crossings in the fourth subject—obtained from up to 192 electrodes "
-        "per session, cursor position and velocity, and other task related metadata.",
-    )
+            # intiantiate a DatasetBuilder which provides utilities for processing data
+            brainset_description = BrainsetDescription(
+                id="perich_miller_population_2018",
+                origin_version="dandi/000688/draft",
+                derived_version="1.0.0",
+                source="https://dandiarchive.org/dandiset/000688",
+                description="This dataset contains electrophysiology and behavioral data from "
+                "three macaques performing either a center-out task or a continuous random "
+                "target acquisition task. Neural activity was recorded from "
+                "chronically-implanted electrode arrays in the primary motor cortex (M1) or "
+                "dorsal premotor cortex (PMd) of four rhesus macaque monkeys. A subset of "
+                "sessions includes recordings from both regions simultaneously. The data "
+                "contains spiking activity—manually spike sorted in three subjects, and "
+                "threshold crossings in the fourth subject—obtained from up to 192 electrodes "
+                "per session, cursor position and velocity, and other task related metadata.",
+            )
 
-    logging.info(f"Processing file: {args.input_file}")
+            logging.info(f"Processing file: {input_file}")
 
-    # open file
-    io = NWBHDF5IO(args.input_file, "r")
-    nwbfile = io.read()
+            # open file
+            io = NWBHDF5IO(input_file, "r")
+            nwbfile = io.read()
+            # extract subject metadata
+            # this dataset is from dandi, which has structured subject metadata, so we
+            # can use the helper function extract_subject_from_nwb
+            subject = extract_subject_from_nwb(nwbfile)
 
-    # extract subject metadata
-    # this dataset is from dandi, which has structured subject metadata, so we
-    # can use the helper function extract_subject_from_nwb
-    subject = extract_subject_from_nwb(nwbfile)
+            # extract experiment metadata
+            recording_date = nwbfile.session_start_time.strftime("%Y%m%d")
+            device_id = f"{subject.id}_{recording_date}"
+            task = (
+                "center_out_reaching" if "CO" in input_file else "random_target_reaching"
+            )
+            session_id = f"{device_id}_{task}"
 
-    # extract experiment metadata
-    recording_date = nwbfile.session_start_time.strftime("%Y%m%d")
-    device_id = f"{subject.id}_{recording_date}"
-    task = (
-        "center_out_reaching" if "CO" in args.input_file else "random_target_reaching"
-    )
-    session_id = f"{device_id}_{task}"
+            # register session
+            session_description = SessionDescription(
+                id=session_id,
+                recording_date=datetime.datetime.strptime(recording_date, "%Y%m%d"),
+                task=Task.REACHING,
+            )
 
-    # register session
-    session_description = SessionDescription(
-        id=session_id,
-        recording_date=datetime.datetime.strptime(recording_date, "%Y%m%d"),
-        task=Task.REACHING,
-    )
+            # register device
+            device_description = DeviceDescription(
+                id=device_id,
+                recording_tech=RecordingTech.UTAH_ARRAY_SPIKES,
+            )
 
-    # register device
-    device_description = DeviceDescription(
-        id=device_id,
-        recording_tech=RecordingTech.UTAH_ARRAY_SPIKES,
-    )
+            # extract spiking activity
+            # this data is from dandi, we can use our helper function
+            spikes, units = extract_spikes_from_nwbfile(
+                nwbfile, recording_tech=RecordingTech.UTAH_ARRAY_SPIKES
+            )
 
-    # extract spiking activity
-    # this data is from dandi, we can use our helper function
-    spikes, units = extract_spikes_from_nwbfile(
-        nwbfile, recording_tech=RecordingTech.UTAH_ARRAY_SPIKES
-    )
+            # extract behavior
+            cursor = extract_behavior(nwbfile)
+            cursor_outlier_segments = detect_outliers(cursor)
 
-    # extract behavior
-    cursor = extract_behavior(nwbfile)
-    cursor_outlier_segments = detect_outliers(cursor)
+            # extract data about trial structure
+            trials, movement_phases = extract_trials(nwbfile, task, cursor)
 
-    # extract data about trial structure
-    trials, movement_phases = extract_trials(nwbfile, task, cursor)
+            # close file
+            io.close()
 
-    # close file
-    io.close()
+            # register session
+            data = Data(
+                brainset=brainset_description,
+                subject=subject,
+                session=session_description,
+                device=device_description,
+                # neural activity
+                spikes=spikes,
+                units=units,
+                # stimuli and behavior
+                trials=trials,
+                movement_phases=movement_phases,
+                cursor=cursor,
+                cursor_outlier_segments=cursor_outlier_segments,
+                # domain
+                domain=cursor.domain,
+            )
 
-    # register session
-    data = Data(
-        brainset=brainset_description,
-        subject=subject,
-        session=session_description,
-        device=device_description,
-        # neural activity
-        spikes=spikes,
-        units=units,
-        # stimuli and behavior
-        trials=trials,
-        movement_phases=movement_phases,
-        cursor=cursor,
-        cursor_outlier_segments=cursor_outlier_segments,
-        # domain
-        domain=cursor.domain,
-    )
+            # split trials into train, validation and test
+            successful_trials = trials.select_by_mask(trials.is_valid)
+            _, valid_trials, test_trials = successful_trials.split(
+                [0.7, 0.1, 0.2], shuffle=True, random_seed=42
+            )
 
-    # split trials into train, validation and test
-    successful_trials = trials.select_by_mask(trials.is_valid)
-    _, valid_trials, test_trials = successful_trials.split(
-        [0.7, 0.1, 0.2], shuffle=True, random_seed=42
-    )
+            train_sampling_intervals = data.domain.difference(
+                (valid_trials | test_trials).dilate(3.0)
+            )
 
-    train_sampling_intervals = data.domain.difference(
-        (valid_trials | test_trials).dilate(3.0)
-    )
+            data.set_train_domain(train_sampling_intervals)
+            data.set_valid_domain(valid_trials)
+            data.set_test_domain(test_trials)
 
-    data.set_train_domain(train_sampling_intervals)
-    data.set_valid_domain(valid_trials)
-    data.set_test_domain(test_trials)
-
-    # save data to disk
-    path = os.path.join(args.output_dir, f"{session_id}.h5")
-    with h5py.File(path, "w") as file:
-        data.to_hdf5(file, serialize_fn_map=serialize_fn_map)
+            # save data to disk
+            path = os.path.join(args.output_dir, f"{session_id}.h5")
+            print(path)
+            with h5py.File(path, "w") as file:
+                data.to_hdf5(file, serialize_fn_map=serialize_fn_map)
 
 
 if __name__ == "__main__":
