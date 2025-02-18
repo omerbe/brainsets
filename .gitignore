@@ -158,6 +158,10 @@ smux*
 data/processed
 data/raw
 
+###
+brainsets_pipelines/perich_miller_population_2018/data
+brainsets_pipelines/perich_miller_population_2018/dataset
+
 # macOS system files
 .DS_Store
 **/.DS_Store
