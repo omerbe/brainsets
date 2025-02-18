@@ -161,7 +161,7 @@ data/raw
 ###
 brainsets_pipelines/perich_miller_population_2018/data
 brainsets_pipelines/perich_miller_population_2018/dataset
-
+brainsets_pipelines/hisham_big_dataset/data
 # macOS system files
 .DS_Store
 **/.DS_Store
