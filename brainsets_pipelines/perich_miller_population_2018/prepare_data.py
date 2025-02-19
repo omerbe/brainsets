@@ -18,6 +18,7 @@ from brainsets.utils.dandi_utils import (
     extract_spikes_from_nwbfile,
     extract_subject_from_nwb,
 )
+
 from brainsets.taxonomy import RecordingTech, Task
 from brainsets import serialize_fn_map
 
@@ -183,10 +184,12 @@ def main():
             # this dataset is from dandi, which has structured subject metadata, so we
             # can use the helper function extract_subject_from_nwb
             subject = extract_subject_from_nwb(nwbfile)
-
+            
             # extract experiment metadata
             recording_date = nwbfile.session_start_time.strftime("%Y%m%d")
+            
             device_id = f"{subject.id}_{recording_date}"
+            
             task = (
                 "center_out_reaching" if "CO" in input_file else "random_target_reaching"
             )
@@ -198,7 +201,8 @@ def main():
                 recording_date=datetime.datetime.strptime(recording_date, "%Y%m%d"),
                 task=Task.REACHING,
             )
-
+            
+            
             # register device
             device_description = DeviceDescription(
                 id=device_id,
@@ -211,6 +215,7 @@ def main():
                 nwbfile, recording_tech=RecordingTech.UTAH_ARRAY_SPIKES
             )
 
+            
             # extract behavior
             cursor = extract_behavior(nwbfile)
             cursor_outlier_segments = detect_outliers(cursor)
@@ -248,6 +253,18 @@ def main():
             train_sampling_intervals = data.domain.difference(
                 (valid_trials | test_trials).dilate(3.0)
             )
+            # print(successful_trials)
+            # print(successful_trials.start)
+            # print(successful_trials.end)
+            # print("testing trials start time")
+            # print(test_trials.start)
+            # print("testing trials end time")
+            # print(test_trials.end)
+            # print("training trials start time")
+            # print(train_sampling_intervals.start)
+            # print("testing trials end time")
+            # # print(train_sampling_intervals.end)
+            # raise KeyboardInterrupt
 
             data.set_train_domain(train_sampling_intervals)
             data.set_valid_domain(valid_trials)
@@ -258,6 +275,7 @@ def main():
             print(path)
             with h5py.File(path, "w") as file:
                 data.to_hdf5(file, serialize_fn_map=serialize_fn_map)
+            raise KeyboardInterrupt
 
 
 if __name__ == "__main__":

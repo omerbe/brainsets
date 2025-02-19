@@ -10,7 +10,7 @@ from brainsets.taxonomy import (
     Species,
 )
 
-def monkey_N_subject(nwbfile):
+def monkey_N_subject():
     r"""DANDI has requirements for metadata included in `subject`. This includes:
     subject_id: A subject identifier must be provided.
     species: either a latin binomial or NCBI taxonomic identifier.

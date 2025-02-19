@@ -10,26 +10,34 @@ import numpy as np
 # from scipy.ndimage import binary_dilation, binary_erosion
 
 from temporaldata import Data, ArrayDict, RegularTimeSeries, Interval
+
+## this is from the brainsets package, not the local dir
 from brainsets.descriptions import (
     BrainsetDescription,
     SessionDescription,
     DeviceDescription,
 )
 
-# from brainsets.utils.dandi_utils import (
+# from brainsets.utils.dandi_utils import ( 
 #     extract_spikes_from_nwbfile,
 #     extract_subject_from_nwb,
 # )
 
-from brainsets.utils.monkey_N_utils import (
-    monkey_N_subject,
-)
-
 from brainsets.taxonomy import RecordingTech, Task
 from brainsets import serialize_fn_map
 
+#from local dir
+from monkey_N_utils import monkey_N_subject
+
 logging.basicConfig(level=logging.INFO)
 
+def extract_domain(task_data):
+    #as i assume the data is cleaned and binned, let each time bin occupy one unit of time
+    total_time_bins = np.shape(task_data["sbp"])[0]
+    starts = np.array([float(i) for i in range(total_time_bins - 1)])
+    ends = np.array([float(i)  for i in range(1,total_time_bins)])
+    domain = Interval(starts,ends)
+    return domain
 
 def extract_units(task_data):
     #Extract units from the data dictionary.
@@ -50,105 +58,18 @@ def extract_neural_features(task_data):
         sbp = task_data["sbp"],
         tcfr = task_data["tcfr"],
         sampling_rate=1., # as the data is already binned, the sample rate of the data if 1 bin
+        domain = "auto"
     )
     return neural_features
 
 def extract_behavior(task_data):
     
     cursor = RegularTimeSeries(
-        finger_kinematics = ['finger_kinematics'],
+        finger_kinematics = task_data['finger_kinematics'],
         sampling_rate=1., # as the data is already binned, the sample rate of the data if 1 bin
+        domain = "auto"
     )
     return cursor
-
-
-# def extract_trials(nwbfile, task, cursor):
-#     r"""Extract trial information from the NWB file. Trials that are flagged as
-#     "to discard" or where the monkey failed are marked as invalid."""
-#     trial_table = nwbfile.trials.to_dataframe()
-
-#     # rename start and end time columns
-#     trial_table = trial_table.rename(
-#         columns={
-#             "start_time": "start",
-#             "stop_time": "end",
-#         }
-#     )
-#     trials = Interval.from_dataframe(trial_table)
-
-#     # next we extract the different periods in the trials
-#     if task == "center_out_reaching":
-#         # isolate valid trials based on success
-#         trials.is_valid = np.logical_and(
-#             np.logical_and(trials.result == "R", ~(np.isnan(trials.target_id))),
-#             (trials.end - trials.start) < 6.0,
-#         )
-#         valid_trials = trials.select_by_mask(trials.is_valid)
-
-#         movement_phases = Data(
-#             hold_period=Interval(
-#                 start=valid_trials.target_on_time, end=valid_trials.go_cue_time
-#             ),
-#             reach_period=Interval(start=valid_trials.go_cue_time, end=valid_trials.end),
-#             return_period=Interval(
-#                 start=valid_trials.start, end=valid_trials.target_on_time
-#             ),
-#             domain="auto",
-#         )
-
-#     elif task == "random_target_reaching":
-#         # isolate valid trials based on success
-#         trials.is_valid = np.logical_and(
-#             np.logical_and(trials.result == "R", trials.num_attempted == 4),
-#             (trials.end - trials.start) < 10.0,
-#         )
-#         valid_trials = trials.select_by_mask(trials.is_valid)
-
-#         movement_phases = Data(
-#             hold_period=Interval(
-#                 start=valid_trials.start, end=valid_trials.go_cue_time_array[:, 0]
-#             ),
-#             domain="auto",
-#         )
-
-#     # everything outside of the different identified periods will be marked as random
-#     movement_phases.random_period = cursor.domain.difference(movement_phases.domain)
-
-#     return trials, movement_phases
-
-
-# def detect_outliers(cursor):
-#     # sometimes monkeys get angry, we want to identify the segments where the hand is
-#     # moving too fast, and mark them as outliers
-#     # we use the norm of the acceleration to identify outliers
-#     hand_acc_norm = np.linalg.norm(cursor.acc, axis=1)
-#     mask_acceleration = hand_acc_norm > 1500.0
-#     mask_acceleration = binary_dilation(
-#         mask_acceleration, structure=np.ones(2, dtype=bool)
-#     )
-
-#     # we also want to identify out of bound segments
-#     mask_position = np.logical_or(cursor.pos[:, 0] < -10, cursor.pos[:, 0] > 10)
-#     mask_position = np.logical_or(mask_position, cursor.pos[:, 1] < -10)
-#     mask_position = np.logical_or(mask_position, cursor.pos[:, 1] > 10)
-#     # dilate than erode
-#     mask_position = binary_dilation(mask_position, np.ones(400, dtype=bool))
-#     mask_position = binary_erosion(mask_position, np.ones(100, dtype=bool))
-
-#     outlier_mask = np.logical_or(mask_acceleration, mask_position)
-
-#     # convert to interval, you need to find the start and end of the outlier segments
-#     start = cursor.timestamps[np.where(np.diff(outlier_mask.astype(int)) == 1)[0]]
-#     if outlier_mask[0]:
-#         start = np.insert(start, 0, cursor.timestamps[0])
-
-#     end = cursor.timestamps[np.where(np.diff(outlier_mask.astype(int)) == -1)[0]]
-#     if outlier_mask[-1]:
-#         end = np.insert(end, 0, cursor.timestamps[-1])
-
-#     cursor_outlier_segments = Interval(start=start, end=end)
-
-#     return cursor_outlier_segments
 
 
 def main():
@@ -170,7 +91,7 @@ def main():
             manifest_entry = line.strip()
             
             # Perform actions with the processed line
-            input_file = os.path.join(dir, data_folder, manifest_entry, suffix)
+            input_file = os.path.join(dir, data_folder, manifest_entry + suffix)
     
             # use argparse to get arguments from the command line
             parser = argparse.ArgumentParser()
@@ -241,12 +162,11 @@ def main():
                 #sbp and tcfr
                 neural_features = extract_neural_features(task_data)
                 
-                
                 # extract behavior
                 cursor = extract_behavior(task_data)
-
-
-
+                
+                domain = extract_domain(task_data)
+                
                 # register session. assume data has already been cleaned and only valid, succesful trials are left. 
                 # as such and data is binned, removed extract trials and cursor outliers
                 # consider normalizing data
@@ -261,13 +181,15 @@ def main():
                     # behavior
                     cursor=cursor,
                     # domain
-                    domain="auto", #look into if this sets automatically or if needs to be done manually
+                    domain=domain, 
                 )
 
             # split trials into train, validation and test
             # for now, keep straight 70/10/20 split, in the future consider randomly slitting the 
             # first 80% of the data by trial into train and val
+            
             train_interval, valid_interval, test_interval = data.domain.split([0.7, 0.1, 0.2])
+       
             data.set_train_domain(train_interval)
             data.set_valid_domain(valid_interval)
             data.set_test_domain(test_interval)
@@ -277,6 +199,7 @@ def main():
             print(path)
             with h5py.File(path, "w") as file:
                 data.to_hdf5(file, serialize_fn_map=serialize_fn_map)
+            raise KeyboardInterrupt
 
 
 if __name__ == "__main__":
