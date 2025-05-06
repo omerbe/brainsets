@@ -49,7 +49,6 @@ def extract_units(task_data):
         count = counts
         )
 
-
     return units
 
 def extract_spikes(task_data):
@@ -60,7 +59,6 @@ def extract_spikes(task_data):
     sorted_tuple_tstep, sorted_tuple_uidx =zip(*sorted_pairs)
     sorted_timestamps = np.array(sorted_tuple_tstep,dtype= np.float64)
     sorted_unit_index = np.array(sorted_tuple_uidx)
-
     
     spikes=IrregularTimeSeries(
         timestamps=sorted_timestamps,
@@ -71,14 +69,11 @@ def extract_spikes(task_data):
 
 def extract_behavior(task_data): #updated
     
-
     timestamps = np.array(task_data['bin_times'],dtype= np.float64) / 1000.0
     cursor_pos = task_data['binned_pos']
     cursor_vel = task_data['binned_vel']
-
     cursor_pos_and_vel=  np.concatenate((cursor_pos,cursor_vel), axis = 1)
     
-
     cursor = IrregularTimeSeries( 
         timestamps=timestamps,
         pos_and_vel=cursor_pos_and_vel,
@@ -100,7 +95,6 @@ def interval_splitter(task_data):
     train_interval = Interval(bin_times[0],bin_times[int(num_bins*.7)])
     valid_interval = Interval(bin_times[int(num_bins*.7)],bin_times[int(num_bins*.8)])
     test_interval = Interval(bin_times[int(num_bins*.8)],bin_times[-1])
-    
     
     return train_interval, valid_interval, test_interval 
 
