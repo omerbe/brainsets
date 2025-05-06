@@ -165,3 +165,5 @@ brainsets_pipelines/hisham_big_dataset/data
 # macOS system files
 .DS_Store
 **/.DS_Store
+
+uv.lock

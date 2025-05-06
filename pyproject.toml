@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brainsets"
-version = "0.1.1"
+version = "0.1.2"
 description = "A package for processing neural datasets"
 readme = "README.md"
 authors = [
@@ -33,7 +33,8 @@ dependencies = [
     "pydantic~=2.0",
     "pulp==2.7.0",
     "click~=8.1.3",
-    "dandi==0.61.2",
+    "uv",
+    "prompt_toolkit",
 ]
 
 [project.optional-dependencies]
@@ -50,8 +51,15 @@ Issues = "https://github.com/neuro-galaxy/brainsets/issues"
 Documentation = "https://brainsets.readthedocs.io/en/latest/"
 
 [project.scripts]
-brainsets = "brainsets.cli:cli"
+brainsets = "brainsets._cli:cli"
 
 [tool.setuptools]
-packages = ["brainsets", "brainsets.utils", "brainsets_pipelines"]
+packages = [
+    "brainsets",
+    "brainsets.utils",
+    "brainsets.taxonomy",
+    "brainsets.processing",
+    "brainsets._cli",
+    "brainsets_pipelines",
+]
 include-package-data = true
