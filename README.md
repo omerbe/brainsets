@@ -1,3 +1,8 @@
+## Note
+This is a forked repository where I have added the code to process an internal lab dataset, LINK, into a brainset to allow for training a POYO model.
+The readme for the original repo is shown below.
+
+
 <p align="left">
     <img height="250" src="https://brainsets.readthedocs.io/en/latest/_static/brainsets_logo.png" />
 </p>
