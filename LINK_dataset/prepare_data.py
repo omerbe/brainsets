@@ -65,6 +65,46 @@ def extract_spikes(task_data):
         unit_index=sorted_unit_index,
         domain="auto"
     )
+
+    ### for simulating spikes from spiking band power
+    # sbp = task_data["sbp"] #binned_sbp
+    
+    # # zero out the top 10% of sbp as outliers
+    # ninety_percentile = np.percentile(sbp,90,axis = 0)
+    # sbp[sbp>ninety_percentile] = np.nan #set top ten percent to nan so they dont influence normalization
+    
+    # # normalize 
+    # minmax_transformer = MinMaxScaler().fit(sbp)
+    # sbp = minmax_transformer.transform(sbp)
+    
+    # # set nan to zeros -> no contribution to spikes
+    # sbp = np.nan_to_num(sbp)
+
+    # num_units = sbp.shape[1]
+    # timestamps = np.array(task_data['time'],dtype= np.float64) / 1000.0
+    
+    # unit_idxs = np.array([i for i in range(num_units)])
+    # spiking_unit_list = []
+    # spiking_timestamps = []
+
+    # for t_step_idx in range(1,len(timestamps)):#assume no spikes at first time bin
+    #     sbp[t_step_idx,:] += sbp[t_step_idx-1,:]
+    #     spike_occured_mask= sbp[t_step_idx,:] >= 1
+    #     sbp[t_step_idx,:][spike_occured_mask] -= 1
+    #     spiking_unit_list.extend(unit_idxs[spike_occured_mask])
+    #     spiking_timestamps.extend([timestamps[t_step_idx]]*spike_occured_mask.sum())
+    
+    # #no need to sort, we grab spikes in order
+    # np_spiking_timestamps = np.array(spiking_timestamps, dtype= np.float64).squeeze()
+    # np_spiking_unit_list = np.array(spiking_unit_list)
+    
+    # spikes=IrregularTimeSeries(
+    #     timestamps = np_spiking_timestamps,
+    #     unit_index= np_spiking_unit_list,
+    #     domain="auto"
+    # )
+    # units = extract_units(task_data,np_spiking_unit_list)
+    
     return spikes
 
 def extract_behavior(task_data): #updated
